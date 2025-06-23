@@ -127,14 +127,26 @@ export default function PostByKeywordPage() {
 		return () => clearInterval(interval)
 	}, [suggestions.length])
 
+	// Enhanced keyword input handler
 	const handleKeywordInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === 'Enter') {
-			e.preventDefault()
-			const value = e.currentTarget.value.trim()
-			if (value) {
-				setKeywords(prev => [...prev, value])
-				e.currentTarget.value = '' // Clear input
+		const value = e.currentTarget.value;
+		if (e.key === 'Enter' || e.key === ',') {
+			e.preventDefault();
+			const parts = value.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+			if (parts.length > 0) {
+				setKeywords(prev => [...prev, ...parts]);
+				e.currentTarget.value = '';
 			}
+		}
+	}
+
+	// Handle paste event for keywords input
+	const handleKeywordPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+		e.preventDefault();
+		const paste = e.clipboardData.getData('text');
+		const parts = paste.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+		if (parts.length > 0) {
+			setKeywords(prev => [...prev, ...parts]);
 		}
 	}
 
@@ -275,6 +287,7 @@ export default function PostByKeywordPage() {
 								<Input
 									placeholder="Enter keyword and press Enter"
 									onKeyDown={handleKeywordInput}
+									onPaste={handleKeywordPaste}
 									className="h-12 bg-gray-800/50 border border-gray-600 text-white"
 								/>
 
