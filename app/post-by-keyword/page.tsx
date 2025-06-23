@@ -79,23 +79,18 @@ const languages = [
 	{ code: "FI", name: "Finnish" },
 ]
 
-// Function to get current time in HH:mm format
-const getCurrentTime = () => {
-  const now = new Date()
-  return now.toLocaleTimeString('en-US', { 
-    hour12: false, 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })
+// Function to get current UTC time in HH:mm format
+const getCurrentUTCTime = () => {
+  const now = new Date();
+  return now.toISOString().slice(11, 16); // "HH:mm"
 }
 
-// Function to add minutes to a time string
-const addMinutesToTime = (timeStr: string, minutes: number) => {
-  const [hours, mins] = timeStr.split(':').map(Number)
-  const totalMinutes = hours * 60 + mins + minutes
-  const newHours = Math.floor(totalMinutes / 60) % 24
-  const newMins = totalMinutes % 60
-  return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}`
+// Function to add minutes to a UTC time string (HH:mm)
+const addMinutesToUTCTime = (timeStr: string, minutes: number) => {
+  const [hours, mins] = timeStr.split(":").map(Number);
+  const date = new Date(Date.UTC(1970, 0, 1, hours, mins));
+  date.setUTCMinutes(date.getUTCMinutes() + minutes);
+  return date.toISOString().slice(11, 16); // "HH:mm"
 }
 
 export default function PostByKeywordPage() {
@@ -155,21 +150,21 @@ export default function PostByKeywordPage() {
 		}
 	}
 
-	// Function to generate scheduled keywords with time distribution
+	// Function to generate scheduled keywords with time distribution (in UTC)
 	const generateScheduledKeywords = (): KeywordWithTime[] => {
-		const today = new Date()
-		const startTime = getCurrentTime()
-		const todayStr = format(today, "yyyy-MM-dd")
-		
-		return keywords.map((keyword, index) => {
-			const scheduledTime = addMinutesToTime(startTime, index * timeInterval)
-			return {
-				text: keyword,
-				scheduledDate: todayStr,
-				scheduledTime: scheduledTime,
-				minLength: minLength
-			}
-		})
+	  const now = new Date();
+	  const startUTCTime = getCurrentUTCTime();
+	  const todayUTCStr = now.toISOString().slice(0, 10); // "yyyy-MM-dd"
+	  
+	  return keywords.map((keyword, index) => {
+		const scheduledTime = addMinutesToUTCTime(startUTCTime, index * timeInterval);
+		return {
+		  text: keyword,
+		  scheduledDate: todayUTCStr,
+		  scheduledTime: scheduledTime,
+		  minLength: minLength
+		}
+	  })
 	}
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -219,13 +214,13 @@ export default function PostByKeywordPage() {
 		}
 	}
 
-	// Generate preview of scheduled times
+	// Generate preview of scheduled times (in UTC)
 	const getScheduledPreview = () => {
 		if (keywords.length === 0) return []
 		
-		const startTime = getCurrentTime()
+		const startUTCTime = getCurrentUTCTime();
 		return keywords.map((keyword, index) => {
-			const scheduledTime = addMinutesToTime(startTime, index * timeInterval)
+			const scheduledTime = addMinutesToUTCTime(startUTCTime, index * timeInterval);
 			return {
 				keyword,
 				time: scheduledTime
