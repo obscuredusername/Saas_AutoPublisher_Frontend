@@ -31,10 +31,13 @@ jobs:
             git clean -fd
             git pull origin main
 
-            echo "📦 Installing dependencies (with legacy peer deps)..."
-            npm install --legacy-peer-deps || npm install --force
+            echo "🧹 Cleaning previous installs..."
+            rm -rf node_modules package-lock.json
 
-            echo "🔨 Building Next.js app..."
+            echo "📦 Installing dependencies (force legacy peer deps)..."
+            npm install --legacy-peer-deps
+
+            echo "🔨 Building the Next.js app..."
             npm run build
 
             echo "🚀 Restarting frontend with PM2..."
