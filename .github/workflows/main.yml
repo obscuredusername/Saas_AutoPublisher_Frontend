@@ -1,0 +1,36 @@
+name: Deploy Next.js App to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_KEY }}
+
+      - name: Deploy to VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} <<EOF
+            cd /var/www/Saas_AutoPublisher_Frontend
+            echo "Pulling latest changes..."
+            git pull origin main
+            echo "Installing dependencies..."
+            npm install
+            echo "Building the app..."
+            npm run build
+            echo "Restarting PM2..."
+            pm2 restart saas-frontend
+            echo "Reloading NGINX..."
+            sudo systemctl reload nginx || sudo systemctl restart nginx
+            echo "Deployment complete!"
+          EOF
