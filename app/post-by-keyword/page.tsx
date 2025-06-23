@@ -8,15 +8,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, Globe, Languages, Zap, X, Calendar as CalendarIcon } from "lucide-react"
+import { ArrowLeft, Search, Globe, Languages, Zap, X, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 
 // Update the KeywordResponse interface
 interface KeywordResponse {
@@ -28,12 +22,13 @@ interface KeywordResponse {
   unique_links: string[];
   links_count: number;
   status: string;
+  keyword_links?: { [key: string]: string[] }; // Add keyword-specific links
 }
 
-// Update the interface to include minLength
+// Update the interface to include scheduled time
 interface KeywordWithTime {
   text: string;
-  scheduledDate: Date;
+  scheduledDate: string;
   scheduledTime: string;
   minLength?: number;
 }
@@ -84,19 +79,27 @@ const languages = [
 	{ code: "FI", name: "Finnish" },
 ]
 
-// Add this function to get default time (10 mins ahead)
-const getDefaultTime = () => {
-  const date = new Date()
-  date.setMinutes(date.getMinutes() + 10)
-  return date.toLocaleTimeString('en-US', { 
+// Function to get current time in HH:mm format
+const getCurrentTime = () => {
+  const now = new Date()
+  return now.toLocaleTimeString('en-US', { 
     hour12: false, 
     hour: '2-digit', 
     minute: '2-digit' 
   })
 }
 
+// Function to add minutes to a time string
+const addMinutesToTime = (timeStr: string, minutes: number) => {
+  const [hours, mins] = timeStr.split(':').map(Number)
+  const totalMinutes = hours * 60 + mins + minutes
+  const newHours = Math.floor(totalMinutes / 60) % 24
+  const newMins = totalMinutes % 60
+  return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}`
+}
+
 export default function PostByKeywordPage() {
-	const [keywords, setKeywords] = useState<KeywordWithTime[]>([])
+	const [keywords, setKeywords] = useState<string[]>([])
 	const [country, setCountry] = useState("")
 	const [language, setLanguage] = useState("")
 	const [isGenerating, setIsGenerating] = useState(false)
@@ -105,9 +108,7 @@ export default function PostByKeywordPage() {
 	const [response, setResponse] = useState<KeywordResponse | null>(null)
 	const [inputValue, setInputValue] = useState("") // Add this state
 	const [tempKeyword, setTempKeyword] = useState("")
-	const [tempDate, setTempDate] = useState<Date>(new Date())
-	const [tempTime, setTempTime] = useState(getDefaultTime())
-	const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+	const [timeInterval, setTimeInterval] = useState<number>(30) // Time interval in minutes
 	const [minLength, setMinLength] = useState<number>(100)
 
 	// Random suggestions for keywords
@@ -136,12 +137,7 @@ export default function PostByKeywordPage() {
 			e.preventDefault()
 			const value = e.currentTarget.value.trim()
 			if (value) {
-				setKeywords(prev => [...prev, {
-					text: value,
-					scheduledDate: tempDate,
-					scheduledTime: tempTime || getDefaultTime(),
-					minLength: minLength
-				}])
+				setKeywords(prev => [...prev, value])
 				e.currentTarget.value = '' // Clear input
 			}
 		}
@@ -151,25 +147,29 @@ export default function PostByKeywordPage() {
 		setKeywords(prev => prev.filter((_, index) => index !== indexToRemove))
 	}
 
-	const updateKeywordTime = (index: number, time: string) => {
-		setKeywords(prev => prev.map((kw, i) => {
-			if (i === index) {
-				return { ...kw, scheduledTime: time }
-			}
-			return kw
-		}))
-	}
-
 	const handleAddKeyword = (e: React.FormEvent) => {
 		e.preventDefault()
 		if (tempKeyword.trim()) {
-			setKeywords(prev => [...prev, {
-				text: tempKeyword.trim(),
-				scheduledDate: tempDate,
-				scheduledTime: tempTime
-			}])
+			setKeywords(prev => [...prev, tempKeyword.trim()])
 			setTempKeyword("")
 		}
+	}
+
+	// Function to generate scheduled keywords with time distribution
+	const generateScheduledKeywords = (): KeywordWithTime[] => {
+		const today = new Date()
+		const startTime = getCurrentTime()
+		const todayStr = format(today, "yyyy-MM-dd")
+		
+		return keywords.map((keyword, index) => {
+			const scheduledTime = addMinutesToTime(startTime, index * timeInterval)
+			return {
+				text: keyword,
+				scheduledDate: todayStr,
+				scheduledTime: scheduledTime,
+				minLength: minLength
+			}
+		})
 	}
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -183,13 +183,10 @@ export default function PostByKeywordPage() {
 		setError("")
 
 		try {
+			const scheduledKeywords = generateScheduledKeywords()
+			
 			const formattedData = {
-				keywords: keywords.map(k => ({
-					text: k.text,
-					scheduledDate: format(k.scheduledDate, "yyyy-MM-dd"),
-					scheduledTime: k.scheduledTime || getDefaultTime(),
-					minLength: k.minLength || minLength
-				})),
+				keywords: scheduledKeywords,
 				country: country.toLowerCase(),
 				language: language.toLowerCase()
 			}
@@ -220,6 +217,20 @@ export default function PostByKeywordPage() {
 		} finally {
 			setIsGenerating(false)
 		}
+	}
+
+	// Generate preview of scheduled times
+	const getScheduledPreview = () => {
+		if (keywords.length === 0) return []
+		
+		const startTime = getCurrentTime()
+		return keywords.map((keyword, index) => {
+			const scheduledTime = addMinutesToTime(startTime, index * timeInterval)
+			return {
+				keyword,
+				time: scheduledTime
+			}
+		})
 	}
 
 	return (
@@ -263,50 +274,14 @@ export default function PostByKeywordPage() {
 							<div className="space-y-4">
 								<Label className="text-gray-300 text-sm font-medium flex items-center">
 									<Search className="h-4 w-4 mr-2 text-blue-400" />
-									Add Keywords with Schedule (Press Enter to add)
+									Add Keywords (Press Enter to add)
 								</Label>
 								
-								<div className="flex gap-4">
-									<div className="flex-1">
-										<Input
-											placeholder="Enter keyword and press Enter"
-											onKeyDown={handleKeywordInput}
-											className="h-12 bg-gray-800/50 border border-gray-600 text-white"
-										/>
-									</div>
-
-									<Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-										<PopoverTrigger asChild>
-											<Button
-												variant="outline"
-												className="h-12 border-gray-600 text-gray-400 hover:text-white"
-											>
-												<CalendarIcon className="mr-2 h-4 w-4" />
-												{format(tempDate, "PPP")}
-											</Button>
-										</PopoverTrigger>
-										<PopoverContent className="w-auto p-0 bg-gray-900 border-gray-700">
-											<Calendar
-												mode="single"
-												selected={tempDate}
-												onSelect={(date) => {
-													if (date) {
-														setTempDate(date)
-														setIsCalendarOpen(false)
-													}
-												}}
-												initialFocus
-											/>
-										</PopoverContent>
-									</Popover>
-
-									<Input
-										type="time"
-										value={tempTime}
-										onChange={(e) => setTempTime(e.target.value)}
-										className="w-32 h-12 bg-gray-800/50 border border-gray-600 text-white"
-									/>
-								</div>
+								<Input
+									placeholder="Enter keyword and press Enter"
+									onKeyDown={handleKeywordInput}
+									className="h-12 bg-gray-800/50 border border-gray-600 text-white"
+								/>
 
 								{/* Keywords List */}
 								<div className="mt-4 space-y-2">
@@ -315,29 +290,55 @@ export default function PostByKeywordPage() {
 											key={index}
 											className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700"
 										>
-											<div className="flex flex-col">
-												<span className="text-white">{keyword.text}</span>
-												<span className="text-xs text-gray-400">
-													Min length: {keyword.minLength || minLength} chars
-												</span>
-											</div>
-											<div className="flex items-center gap-4">
-												<span className="text-gray-400">
-													{format(keyword.scheduledDate, "PPP")} at {keyword.scheduledTime || getDefaultTime()}
-												</span>
-												<Button
-													size="sm"
-													variant="ghost"
-													onClick={() => removeKeyword(index)}
-													className="text-red-400 hover:text-red-300"
-												>
-													<X className="h-4 w-4" />
-												</Button>
-											</div>
+											<span className="text-white">{keyword}</span>
+											<Button
+												size="sm"
+												variant="ghost"
+												onClick={() => removeKeyword(index)}
+												className="text-red-400 hover:text-red-300"
+											>
+												<X className="h-4 w-4" />
+											</Button>
 										</div>
 									))}
 								</div>
 							</div>
+
+							{/* Time Interval Input */}
+							<div className="space-y-2">
+								<Label className="text-gray-300 text-sm font-medium flex items-center">
+									<Clock className="h-4 w-4 mr-2 text-blue-400" />
+									Time Interval Between Posts (minutes)
+								</Label>
+								<Input
+									type="number"
+									min={1}
+									value={timeInterval}
+									onChange={(e) => setTimeInterval(Number(e.target.value))}
+									className="h-12 bg-gray-800/50 border border-gray-600 text-white"
+									placeholder="30"
+								/>
+							</div>
+
+							{/* Schedule Preview */}
+							{keywords.length > 0 && (
+								<div className="space-y-2">
+									<Label className="text-gray-300 text-sm font-medium">
+										Schedule Preview (Today)
+									</Label>
+									<div className="space-y-2 max-h-40 overflow-y-auto">
+										{getScheduledPreview().map((item, index) => (
+											<div
+												key={index}
+												className="flex items-center justify-between p-2 bg-gray-800/30 rounded-lg border border-gray-700"
+											>
+												<span className="text-white text-sm">{item.keyword}</span>
+												<span className="text-blue-400 text-sm font-mono">{item.time}</span>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
 
 							{/* Country and Language Selects */}
 							<div className="grid grid-cols-2 gap-4">
@@ -350,12 +351,10 @@ export default function PostByKeywordPage() {
 										Country
 									</Label>
 									<Select
-										id="country"
 										value={country}
 										onValueChange={setCountry}
-										className="bg-gray-800/50 border border-gray-600 text-white rounded-xl"
 									>
-										<SelectTrigger>
+										<SelectTrigger className="bg-gray-800/50 border border-gray-600 text-white rounded-xl">
 											<SelectValue placeholder="Select a country" />
 										</SelectTrigger>
 										<SelectContent>
@@ -376,12 +375,10 @@ export default function PostByKeywordPage() {
 										Language
 									</Label>
 									<Select
-										id="language"
 										value={language}
 										onValueChange={setLanguage}
-										className="bg-gray-800/50 border border-gray-600 text-white rounded-xl"
 									>
-										<SelectTrigger>
+										<SelectTrigger className="bg-gray-800/50 border border-gray-600 text-white rounded-xl">
 											<SelectValue placeholder="Select a language" />
 										</SelectTrigger>
 										<SelectContent>
@@ -463,10 +460,41 @@ export default function PostByKeywordPage() {
 												</Badge>
 											</div>
 											<div className="flex justify-between text-sm">
-												<span className="text-gray-400">Links found:</span>
+												<span className="text-gray-400">Total links found:</span>
 												<span className="text-white">{response.links_count || 0}</span>
 											</div>
-											{response.unique_links && response.unique_links.length > 0 && (
+											
+											{/* Keyword-specific links */}
+											{response.keyword_links && Object.keys(response.keyword_links).length > 0 && (
+												<div className="mt-4">
+													<h4 className="text-sm text-gray-400 mb-3">Links by Keyword:</h4>
+													<div className="space-y-3">
+														{Object.entries(response.keyword_links).map(([keyword, links], keywordIndex) => (
+															<div key={keywordIndex} className="border border-gray-700 rounded-lg overflow-hidden">
+																<div className="bg-gray-800/50 px-3 py-2 border-b border-gray-700">
+																	<div className="flex items-center justify-between">
+																		<span className="text-white font-medium text-sm">{keyword}</span>
+																		<span className="text-blue-400 text-xs">{links.length} links</span>
+																	</div>
+																</div>
+																<div className="max-h-32 overflow-y-auto">
+																	{links.map((url, linkIndex) => (
+																		<div 
+																			key={linkIndex} 
+																			className="text-sm p-2 bg-gray-800/30 text-gray-300 break-all border-b border-gray-700/50 last:border-b-0 hover:bg-gray-800/50 transition-colors"
+																		>
+																			{url}
+																		</div>
+																	))}
+																</div>
+															</div>
+														))}
+													</div>
+												</div>
+											)}
+
+											{/* Fallback to unique_links if keyword_links not available */}
+											{(!response.keyword_links || Object.keys(response.keyword_links).length === 0) && response.unique_links && response.unique_links.length > 0 && (
 												<div className="mt-4">
 													<h4 className="text-sm text-gray-400 mb-2">Found URLs:</h4>
 													<div className="space-y-2 max-h-40 overflow-y-auto">
