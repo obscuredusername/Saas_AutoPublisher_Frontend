@@ -21,29 +21,27 @@ jobs:
       - name: Deploy to VPS
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            set -e  # Stop if any command fails
+            set -e
 
+            echo "➡ Switching to project directory..."
             cd /var/www/Saas_AutoPublisher_Frontend
 
-            echo "Resetting and pulling latest changes..."
+            echo "📦 Resetting and pulling latest code..."
             git reset --hard
             git clean -fd
             git pull origin main
 
-            echo "Fixing dependency conflicts..."
-            npm install date-fns@^3.0.0
-
-            echo "Installing dependencies with fallback..."
+            echo "📦 Installing dependencies (with legacy peer deps)..."
             npm install --legacy-peer-deps || npm install --force
 
-            echo "Building the Next.js app..."
+            echo "🔨 Building Next.js app..."
             npm run build
 
-            echo "Restarting PM2 frontend process..."
+            echo "🚀 Restarting frontend with PM2..."
             pm2 restart saas-frontend || pm2 start npm --name saas-frontend -- start
 
-            echo "Reloading NGINX..."
+            echo "🔁 Reloading NGINX..."
             sudo systemctl reload nginx || sudo systemctl restart nginx
 
-            echo "✅ Frontend deployment complete!"
+            echo "✅ Deployment complete!"
           EOF
