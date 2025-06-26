@@ -162,6 +162,11 @@ export default function PostByKeywordPage() {
 		}
 	}
 
+	// Function to generate keywords array for API (just {text})
+	const generateKeywordObjects = (): { text: string }[] => {
+	  return keywords.map((keyword) => ({ text: keyword }));
+	};
+
 	// Function to generate scheduled keywords with time distribution (in UTC)
 	const generateScheduledKeywords = (): KeywordWithTime[] => {
 	  const now = new Date();
@@ -179,6 +184,9 @@ export default function PostByKeywordPage() {
 	  })
 	}
 
+	// Add a user email for the API request (replace with actual user email if available)
+	const userEmail = "test@example.com";
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
 		if (keywords.length === 0 || !country || !language) {
@@ -190,12 +198,13 @@ export default function PostByKeywordPage() {
 		setError("")
 
 		try {
-			const scheduledKeywords = generateScheduledKeywords()
-			
 			const formattedData = {
-				keywords: scheduledKeywords,
+				keywords: generateKeywordObjects(),
 				country: country.toLowerCase(),
-				language: language.toLowerCase()
+				language: language.toLowerCase(),
+				user_email: userEmail,
+				minutes: timeInterval,
+				min_length: minLength
 			}
 
 			const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/keywords`, {
