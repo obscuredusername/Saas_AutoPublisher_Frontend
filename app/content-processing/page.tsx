@@ -8,31 +8,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, Globe, Languages, Zap, X, Clock, RefreshCw, Database } from "lucide-react"
+import { ArrowLeft, FileText, Globe, Languages, Database, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
-import { processKeywords, getTaskStatus, getUserTasks, getAuthToken, getCurrentUser } from "@/lib/api"
+import { processContentKeywords, getCurrentUser } from "@/lib/api"
 import DatabaseSelector from "@/components/database-selector"
 
-// Update the KeywordResponse interface to match the CURL response
-interface KeywordResponse {
+// Content response interface
+interface ContentResponse {
   task_id: string
   status: string
-}
-
-// Update the TaskStatus interface
-interface TaskStatus {
-  task_id: string
-  status: string
-  result?: string
-}
-
-// Update the interface to include scheduled time
-interface KeywordWithTime {
-  text: string
-  scheduledDate: string
-  scheduledTime: string
-  minLength?: number
 }
 
 const countries = [
@@ -81,58 +65,18 @@ const languages = [
 	{ code: "fi", name: "Finnish" },
 ]
 
-// Function to get current UTC time in HH:mm format
-const getCurrentUTCTime = () => {
-  const now = new Date();
-  return now.toISOString().slice(11, 16); // "HH:mm"
-}
-
-// Function to add minutes to a UTC time string (HH:mm)
-const addMinutesToUTCTime = (timeStr: string, minutes: number) => {
-  const [hours, mins] = timeStr.split(":").map(Number);
-  const date = new Date(Date.UTC(1970, 0, 1, hours, mins));
-  date.setUTCMinutes(date.getUTCMinutes() + minutes);
-  return date.toISOString().slice(11, 16); // "HH:mm"
-}
-
-export default function PostByKeywordPage() {
+export default function ContentProcessingPage() {
 	const [keywords, setKeywords] = useState<string[]>([])
 	const [country, setCountry] = useState("")
 	const [language, setLanguage] = useState("")
-	const [isGenerating, setIsGenerating] = useState(false)
+	const [targetDbName, setTargetDbName] = useState("")
+	const [userEmail, setUserEmail] = useState("")
+	const [isProcessing, setIsProcessing] = useState(false)
 	const [showSuccess, setShowSuccess] = useState(false)
 	const [error, setError] = useState("")
-	const [response, setResponse] = useState<KeywordResponse | null>(null)
-	const [inputValue, setInputValue] = useState("")
+	const [response, setResponse] = useState<ContentResponse | null>(null)
 	const [tempKeyword, setTempKeyword] = useState("")
-	const [timeInterval, setTimeInterval] = useState<number>(30)
 	const [minLength, setMinLength] = useState<number>(500)
-	const [userEmail, setUserEmail] = useState("")
-	const [targetDbName, setTargetDbName] = useState("")
-	const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
-	const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null)
-	const [isCheckingStatus, setIsCheckingStatus] = useState(false)
-
-	// Random suggestions for keywords
-	const [suggestions] = useState([
-		"digital marketing",
-		"social media",
-		"content creation",
-		"brand awareness",
-		"engagement strategies",
-		"viral content",
-	])
-
-	// Animation for suggestions
-	const [currentSuggestion, setCurrentSuggestion] = useState(0)
-
-	useEffect(() => {
-		const interval = setInterval(() => {
-			setCurrentSuggestion((prev) => (prev + 1) % suggestions.length)
-		}, 3000)
-
-		return () => clearInterval(interval)
-	}, [suggestions.length])
 
 	// Get user email on component mount
 	useEffect(() => {
@@ -190,23 +134,6 @@ export default function PostByKeywordPage() {
 	  }));
 	};
 
-	// Function to generate scheduled keywords with time distribution (in UTC)
-	const generateScheduledKeywords = (): KeywordWithTime[] => {
-	  const now = new Date();
-	  const startUTCTime = getCurrentUTCTime();
-	  const todayUTCStr = now.toISOString().slice(0, 10); // "yyyy-MM-dd"
-	  
-	  return keywords.map((keyword, index) => {
-		const scheduledTime = addMinutesToUTCTime(startUTCTime, index * timeInterval);
-		return {
-		  text: keyword,
-		  scheduledDate: todayUTCStr,
-		  scheduledTime: scheduledTime,
-		  minLength: minLength
-		}
-	  })
-	}
-
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
 		if (keywords.length === 0 || !country || !language || !userEmail) {
@@ -214,9 +141,8 @@ export default function PostByKeywordPage() {
 			return
 		}
 
-		setIsGenerating(true)
+		setIsProcessing(true)
 		setError("")
-		setTaskStatus(null)
 
 		try {
 			const formattedData = {
@@ -224,14 +150,11 @@ export default function PostByKeywordPage() {
 				country: country.toLowerCase(),
 				language: language.toLowerCase(),
 				user_email: userEmail,
-				minutes: timeInterval,
-				min_length: minLength,
 				target_db_name: targetDbName || undefined
 			}
 
-			const response = await processKeywords(formattedData)
+			const response = await processContentKeywords(formattedData)
 			setResponse(response)
-			setCurrentTaskId(response.task_id)
 			setShowSuccess(true)
 
 			setTimeout(() => {
@@ -241,37 +164,8 @@ export default function PostByKeywordPage() {
 			setError(err.message || "An error occurred")
 			console.error("API Error:", err)
 		} finally {
-			setIsGenerating(false)
+			setIsProcessing(false)
 		}
-	}
-
-	// Check task status
-	const checkTaskStatus = async () => {
-		if (!currentTaskId) return
-		
-		setIsCheckingStatus(true)
-		try {
-			const status = await getTaskStatus(currentTaskId)
-			setTaskStatus(status)
-		} catch (err: any) {
-			setError(err.message || "Failed to check task status")
-		} finally {
-			setIsCheckingStatus(false)
-		}
-	}
-
-	// Generate preview of scheduled times (in UTC)
-	const getScheduledPreview = () => {
-		if (keywords.length === 0) return []
-		
-		const startUTCTime = getCurrentUTCTime();
-		return keywords.map((keyword, index) => {
-			const scheduledTime = addMinutesToUTCTime(startUTCTime, index * timeInterval);
-			return {
-				keyword,
-				time: scheduledTime
-			}
-		})
 	}
 
 	return (
@@ -287,7 +181,7 @@ export default function PostByKeywordPage() {
 							</Button>
 						</Link>
 						<h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 ml-4">
-							Post by Keyword
+							Content Processing
 						</h1>
 					</div>
 				</div>
@@ -301,20 +195,26 @@ export default function PostByKeywordPage() {
 					<CardContent className="relative z-10 p-8">
 						<div className="flex items-center mb-6">
 							<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30 relative">
-								<Search className="h-6 w-6 text-white" />
+								<FileText className="h-6 w-6 text-white" />
 								<div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-xl blur opacity-50 -z-10"></div>
 							</div>
 							<div className="ml-4">
-								<h2 className="text-2xl font-bold text-white">Create Post by Keyword</h2>
-								<p className="text-gray-400 text-sm">Generate engaging content for your social media</p>
+								<h2 className="text-2xl font-bold text-white">Process Content Keywords</h2>
+								<p className="text-gray-400 text-sm">Generate content based on specific keywords</p>
 							</div>
 						</div>
 
 						<form onSubmit={handleSubmit} className="space-y-6">
+							{error && (
+								<div className="p-3 text-sm text-red-500 bg-red-100/10 rounded-lg">
+									{error}
+								</div>
+							)}
+
 							{/* Keyword Input Section */}
 							<div className="space-y-4">
 								<Label className="text-gray-300 text-sm font-medium flex items-center">
-									<Search className="h-4 w-4 mr-2 text-blue-400" />
+									<FileText className="h-4 w-4 mr-2 text-blue-400" />
 									Add Keywords (Press Enter to add)
 								</Label>
 								
@@ -345,42 +245,6 @@ export default function PostByKeywordPage() {
 									))}
 								</div>
 							</div>
-
-							{/* Time Interval Input */}
-							<div className="space-y-2">
-								<Label className="text-gray-300 text-sm font-medium flex items-center">
-									<Clock className="h-4 w-4 mr-2 text-blue-400" />
-									Time Interval Between Posts (minutes)
-								</Label>
-								<Input
-									type="number"
-									min={1}
-									value={timeInterval}
-									onChange={(e) => setTimeInterval(Number(e.target.value))}
-									className="h-12 bg-gray-800/50 border border-gray-600 text-white"
-									placeholder="30"
-								/>
-							</div>
-
-							{/* Schedule Preview */}
-							{keywords.length > 0 && (
-								<div className="space-y-2">
-									<Label className="text-gray-300 text-sm font-medium">
-										Schedule Preview (Today)
-									</Label>
-									<div className="space-y-2 max-h-40 overflow-y-auto">
-										{getScheduledPreview().map((item, index) => (
-											<div
-												key={index}
-												className="flex items-center justify-between p-2 bg-gray-800/30 rounded-lg border border-gray-700"
-											>
-												<span className="text-white text-sm">{item.keyword}</span>
-												<span className="text-blue-400 text-sm font-mono">{item.time}</span>
-											</div>
-										))}
-									</div>
-								</div>
-							)}
 
 							{/* Country and Language Selects */}
 							<div className="grid grid-cols-2 gap-4">
@@ -437,7 +301,7 @@ export default function PostByKeywordPage() {
 							{/* Min Length Input */}
 							<div className="space-y-2">
 								<Label className="text-gray-300 text-sm font-medium flex items-center">
-									<Zap className="h-4 w-4 mr-2 text-blue-400" />
+									<FileText className="h-4 w-4 mr-2 text-blue-400" />
 									Minimum Length (in words)
 								</Label>
 								<Input
@@ -459,10 +323,10 @@ export default function PostByKeywordPage() {
 							<div>
 								<Button
 									type="submit"
-									disabled={isGenerating || keywords.length === 0 || !country || !language || !userEmail}
+									disabled={isProcessing || keywords.length === 0 || !country || !language || !userEmail}
 									className="w-full h-12 text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center"
 								>
-									{isGenerating ? (
+									{isProcessing ? (
 										<>
 											<svg
 												className="animate-spin h-5 w-5 mr-3"
@@ -484,12 +348,12 @@ export default function PostByKeywordPage() {
 													d="M4 12a8 8 0 018-8v16a8 8 0 01-8-8z"
 												/>
 											</svg>
-											Generating...
+											Processing...
 										</>
 									) : (
 										<>
-											<Search className="h-5 w-5 mr-3" />
-											Generate Content
+											<FileText className="h-5 w-5 mr-3" />
+											Process Content
 										</>
 									)}
 								</Button>
@@ -499,7 +363,7 @@ export default function PostByKeywordPage() {
 							{response && (
 								<div className="mt-6 space-y-4">
 									<div className="p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20">
-										<h3 className="font-semibold text-blue-400 mb-4">Task Created Successfully</h3>
+										<h3 className="font-semibold text-blue-400 mb-4">Content Processing Started</h3>
 										<div className="space-y-3">
 											<div className="flex justify-between text-sm">
 												<span className="text-gray-400">Task ID:</span>
@@ -511,55 +375,6 @@ export default function PostByKeywordPage() {
 													{response.status}
 												</Badge>
 											</div>
-											
-											{/* Task Status Check Button */}
-											<div className="mt-4 pt-4 border-t border-gray-700">
-												<Button
-													onClick={checkTaskStatus}
-													disabled={isCheckingStatus || !currentTaskId}
-													variant="outline"
-													className="w-full bg-gray-800/50 border-gray-600 text-blue-400 hover:bg-gray-700/50"
-												>
-													{isCheckingStatus ? (
-														<>
-															<RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-															Checking Status...
-														</>
-													) : (
-														<>
-															<RefreshCw className="h-4 w-4 mr-2" />
-															Check Task Status
-														</>
-													)}
-												</Button>
-											</div>
-
-											{/* Task Status Display */}
-											{taskStatus && (
-												<div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-													<div className="flex justify-between text-sm mb-2">
-														<span className="text-gray-400">Current Status:</span>
-														<Badge 
-															variant="outline" 
-															className={`${
-																taskStatus.status === 'SUCCESS' 
-																	? 'bg-green-500/20 text-green-400' 
-																	: taskStatus.status === 'FAILED'
-																	? 'bg-red-500/20 text-red-400'
-																	: 'bg-yellow-500/20 text-yellow-400'
-															}`}
-														>
-															{taskStatus.status}
-														</Badge>
-													</div>
-													{taskStatus.result && (
-														<div className="text-sm text-gray-300">
-															<span className="text-gray-400">Result: </span>
-															{taskStatus.result}
-														</div>
-													)}
-												</div>
-											)}
 										</div>
 									</div>
 								</div>
@@ -570,4 +385,4 @@ export default function PostByKeywordPage() {
 			</main>
 		</div>
 	)
-}
+} 

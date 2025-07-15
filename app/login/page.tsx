@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, LogIn } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { login, setAuthToken } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,25 +22,11 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed')
-      }
-
-      // Store the token if your API returns one
-      if (data.token) {
-        localStorage.setItem('token', data.token)
-      }
-
+      const response = await login({ email, password })
+      
+      // Store the JWT token
+      setAuthToken(response.access_token)
+      
       // Redirect to dashboard
       router.push('/dashboard')
     } catch (err: any) {

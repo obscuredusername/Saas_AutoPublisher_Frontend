@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, UserPlus } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { signup, setAuthToken } from "@/lib/api"
 
 export default function SignUpPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     password: "",
     confirmPassword: ""
@@ -35,29 +35,14 @@ export default function SignUpPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password
-        }),
+      const response = await signup({
+        email: formData.email,
+        password: formData.password
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed')
-      }
-
-      // Store the token if your API returns one
-      if (data.token) {
-        localStorage.setItem('token', data.token)
-      }
-
+      
+      // Store the JWT token
+      setAuthToken(response.access_token)
+      
       // Redirect to dashboard
       router.push('/dashboard')
     } catch (err: any) {
@@ -97,21 +82,6 @@ export default function SignUpPage() {
                 {error}
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-300 text-sm font-medium">
-                Full Name
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Enter your full name"
-                required
-                className="h-12 pl-4 bg-gray-800/50 border border-gray-600 text-white placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl transition-all duration-200"
-              />
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
