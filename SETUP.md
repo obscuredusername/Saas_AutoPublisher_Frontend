@@ -9,7 +9,7 @@ This frontend application is designed to work with the CURL-based API endpoints.
 Create a `.env.local` file in the root directory:
 
 ```env
-NEXT_PUBLIC_API_URL=http://65.109.25.252:3001
+NEXT_PUBLIC_API_URL=http://65.109.25.252:8000
 ```
 
 ### 2. Install Dependencies

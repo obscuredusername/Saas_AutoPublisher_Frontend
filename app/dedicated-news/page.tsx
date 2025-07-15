@@ -32,7 +32,7 @@ export default function DedicatedNewsPage() {
         language,
         country,
       })
-      const res = await fetch(`http://65.109.25.252:3001/dedicated-news/?${params.toString()}`)
+      const res = await fetch(`http://65.109.25.252:8000/dedicated-news/?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch news")
       const data = await res.json()
       setNews(data.rewritten || [])

@@ -18,7 +18,7 @@ A modern social media auto-publishing platform with database configuration manag
 
 ## API Endpoints
 
-The frontend communicates with the backend API at `http://65.109.25.252:3001`:
+The frontend communicates with the backend API at `http://65.109.25.252:8000`:
 
 - `POST /store-db-config` - Store a new database configuration
 - `POST /select-db` - Select a database for use
@@ -29,7 +29,7 @@ The frontend communicates with the backend API at `http://65.109.25.252:3001`:
 
 1. **Start the Backend Server**
    ```bash
-   # Make sure your backend is running on http://65.109.25.252:3001
+   # Make sure your backend is running on http://65.109.25.252:8000
    ```
 
 2. **Start the Frontend**
@@ -69,7 +69,7 @@ The frontend communicates with the backend API at `http://65.109.25.252:3001`:
 
 ```bash
 # Store a database configuration
-curl -X POST "http://65.109.25.252:3001/store-db-config" \
+curl -X POST "http://65.109.25.252:8000/store-db-config" \
      -H "Content-Type: application/json" \
      -d '{
        "name": "staging_db",
@@ -79,17 +79,17 @@ curl -X POST "http://65.109.25.252:3001/store-db-config" \
      }'
 
 # Select a database
-curl -X POST "http://65.109.25.252:3001/select-db" \
+curl -X POST "http://65.109.25.252:8000/select-db" \
      -H "Content-Type: application/json" \
      -d '{
        "name": "staging_db"
      }'
 
 # List all configurations
-curl -X GET "http://65.109.25.252:3001/list-db-configs"
+curl -X GET "http://65.109.25.252:8000/list-db-configs"
 
 # Delete a configuration
-curl -X DELETE "http://65.109.25.252:3001/delete-db-config/staging_db"
+curl -X DELETE "http://65.109.25.252:8000/delete-db-config/staging_db"
 ```
 
 ## Technology Stack
