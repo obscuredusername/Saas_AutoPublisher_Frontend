@@ -161,26 +161,6 @@ export default function DashboardPage() {
               </div>
             </Card>
           </Link>
-
-          {/* Dedicated News Portal - New Feature */}
-          <Link href="/dedicated-news" className="group">
-            <Card className="h-full bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 hover:border-blue-500/50 shadow-xl shadow-blue-500/10 hover:shadow-blue-500/20 transition-all duration-300 overflow-hidden group-hover:-translate-y-1">
-              <div className="p-6 flex flex-col h-full relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative z-10 flex-1">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300 relative">
-                    <Globe className="h-8 w-8 text-white" />
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-2xl blur opacity-0 group-hover:opacity-50 transition-opacity duration-300 -z-10"></div>
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Dedicated News Portal</h3>
-                  <p className="text-gray-400 mb-4">Fetch and view dedicated news from a specific source and filters</p>
-                </div>
-                <Button className="relative z-10 w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white border-0 h-12 rounded-xl transition-all duration-300 shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50">
-                  Get Started
-                </Button>
-              </div>
-            </Card>
-          </Link>
         </div>
       </main>
     </div>
