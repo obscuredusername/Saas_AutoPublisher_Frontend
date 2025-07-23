@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://65.109.25.252:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://213.165.250.221:8000'
 
 // JWT Token management
 export const getAuthToken = (): string | null => {
