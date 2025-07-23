@@ -114,7 +114,7 @@ export default function PostByNewsPage() {
         country,
         source,
       }
-      const res = await fetch("http://localhost:8000/news/schedule", {
+      const res = await fetch("http://213.165.250.221:8000/news/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
