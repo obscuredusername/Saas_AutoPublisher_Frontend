@@ -24,7 +24,7 @@ jobs:
             set -e
 
             echo "➡ Switching to project directory..."
-            cd /var/www/Saas_AutoPublisher_Frontend
+            cd /var/www/Saas_AutoPublisher/frontend/Saas_AutoPublisher_Frontend
 
             echo "📦 Resetting and pulling latest code..."
             git reset --hard
