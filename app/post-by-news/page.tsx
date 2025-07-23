@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Newspaper, Globe, Languages, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getCurrentUser } from "@/lib/api"
+import { comment } from "postcss"
 
 const countries = [
   { code: "us", name: "United States" },
@@ -101,6 +102,7 @@ export default function PostByNewsPage() {
     setIsProcessing(true)
     setError("")
     setResponse(null)
+    // a useless comment
     try {
       const catObj: Record<string, number> = {}
       categories.forEach(cat => {
@@ -112,7 +114,7 @@ export default function PostByNewsPage() {
         country,
         source,
       }
-      const res = await fetch("http://65.109.25.252:8000/news/schedule", {
+      const res = await fetch("http://localhost:8000/news/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
