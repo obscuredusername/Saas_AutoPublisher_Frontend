@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Newspaper, Globe, Languages, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getCurrentUser } from "@/lib/api"
-import { comment } from "postcss"
+import { scheduleNews } from "@/lib/api"
 
 const countries = [
   { code: "us", name: "United States" },
@@ -102,7 +102,6 @@ export default function PostByNewsPage() {
     setIsProcessing(true)
     setError("")
     setResponse(null)
-    // a useless comment
     try {
       const catObj: Record<string, number> = {}
       categories.forEach(cat => {
@@ -114,13 +113,8 @@ export default function PostByNewsPage() {
         country,
         source,
       }
-      const res = await fetch("http://213.165.250.221:8000/news/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error("Failed to schedule news")
-      setResponse(await res.json())
+      const res = await scheduleNews(body)
+      setResponse(res)
     } catch (err: any) {
       setError(err.message || "Unknown error")
     } finally {

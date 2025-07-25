@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Globe, Newspaper, RefreshCw, Languages } from "lucide-react"
 import Link from "next/link"
+import { getDedicatedNews } from "@/lib/api"
 
 export default function DedicatedNewsPage() {
   const [source, setSource] = useState("yahoo")
@@ -25,16 +26,14 @@ export default function DedicatedNewsPage() {
     setError("")
     setNews([])
     try {
-      const params = new URLSearchParams({
+      const params = {
         source,
         category,
-        max: String(max),
+        max,
         language,
         country,
-      })
-      const res = await fetch(`http://213.165.250.221:8000/dedicated-news/?${params.toString()}`)
-      if (!res.ok) throw new Error("Failed to fetch news")
-      const data = await res.json()
+      }
+      const data = await getDedicatedNews(params)
       setNews(data.rewritten || [])
     } catch (err: any) {
       setError(err.message || "Unknown error")

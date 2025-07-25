@@ -287,3 +287,32 @@ export async function setTargetDb(data: TargetDbRequest): Promise<any> {
 export async function getTargetDb(): Promise<TargetDbRequest> {
   return authenticatedFetch('/admin/get-target-db')
 } 
+
+export async function getDedicatedNews(params: {
+  source: string
+  category: string
+  max: number
+  language: string
+  country: string
+}): Promise<any> {
+  const queryParams = new URLSearchParams({
+    source: params.source,
+    category: params.category,
+    max: String(params.max),
+    language: params.language,
+    country: params.country,
+  }).toString()
+  return authenticatedFetch(`/dedicated-news/?${queryParams}`)
+} 
+
+export async function scheduleNews(data: {
+  categories: Record<string, number>,
+  language: string,
+  country: string,
+  source: string,
+}): Promise<any> {
+  return authenticatedFetch('/news/schedule', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+} 
