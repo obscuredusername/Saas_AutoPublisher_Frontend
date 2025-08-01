@@ -13,7 +13,7 @@ export const setAuthToken = (token: string): void => {
     localStorage.setItem('access_token', token)
   }
 }
-
+//yes
 export const removeAuthToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('access_token')
