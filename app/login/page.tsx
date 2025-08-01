@@ -56,7 +56,7 @@ export default function LoginPage() {
               <LogIn className="h-8 w-8 text-white" />
               <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-2xl blur opacity-50 -z-10"></div>
             </div>
-            <h1 className="text-2xl font-bold text-white">Welcome Back!</h1>
+            <h1 className="text-2xl font-bold text-white">Welcome Black!</h1>
             <p className="text-gray-400 mt-1">Login to access your dashboard</p>
           </div>
 
