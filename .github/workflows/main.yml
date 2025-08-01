@@ -20,50 +20,54 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh -T -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash << 'EOSCRIPT'
             set -e
 
-            echo "➡ Switching to project directory (frontend)..."
+            echo "➡ Entered the server"
+
+            echo "➡ Frontend deployment starting..."
             cd /var/www/Saas_AutoPublisher/frontend/Saas_AutoPublisher_Frontend
 
-            echo "📦 Resetting and pulling latest frontend code..."
+            echo "📦 Pulling latest frontend code..."
             git reset --hard
             git clean -fd
             git pull origin main
 
-            echo "🧹 Cleaning previous installs..."
-            rm -rf node_modules package-lock.json
-
             echo "📦 Installing frontend dependencies..."
+            rm -rf node_modules package-lock.json
             npm install --legacy-peer-deps
 
-            echo "🔨 Building the Next.js frontend..."
+            echo "🔨 Building frontend..."
             npm run build
 
             echo "🚀 Restarting frontend with PM2..."
             pm2 restart saas-frontend || pm2 start npm --name saas-frontend -- start
 
-            echo "➡ Switching to backend project directory..."
+            echo "✅ Frontend deployment complete!"
+
+            echo "➡ Backend deployment starting..."
             cd /var/www/Saas_AutoPublisher/backend
 
-            echo "📦 Resetting and pulling latest backend code..."
+            echo "📦 Pulling latest backend code..."
             git reset --hard
             git clean -fd
             git pull origin main
 
-            echo "🐍 Setting up Python virtual environment..."
+            echo "🐍 Setting up virtual environment..."
             python3 -m venv venv
             source venv/bin/activate
 
-            echo "📦 Installing backend Python dependencies..."
+            echo "📦 Installing backend dependencies..."
             pip install --upgrade pip
             pip install -r requirements.txt
 
             echo "🚀 Restarting backend with PM2..."
             pm2 restart saas-api || pm2 start venv/bin/python --name saas-api -- main.py
 
+            echo "✅ Backend deployment complete!"
+
             echo "🔁 Reloading NGINX..."
             sudo systemctl reload nginx || sudo systemctl restart nginx
 
-            echo "✅ Deployment complete!"
-          EOF
+            echo "✅ All deployment steps completed!"
+          EOSCRIPT
