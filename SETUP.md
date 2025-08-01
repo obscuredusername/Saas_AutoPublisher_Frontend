@@ -15,7 +15,7 @@ NEXT_PUBLIC_API_URL=http://213.165.250.221:8000
 ### 2. Install Dependencies
 
 ```bash
-npm install
+npm installll
 # or
 yarn install
 # or
