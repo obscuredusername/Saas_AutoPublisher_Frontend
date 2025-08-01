@@ -20,54 +20,31 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          ssh -T -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash << 'EOSCRIPT'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             set -e
 
-            echo "➡ Entered the server"
-
-            echo "➡ Frontend deployment starting..."
+            echo "➡ Switching to project directory..."
             cd /var/www/Saas_AutoPublisher/frontend/Saas_AutoPublisher_Frontend
 
-            echo "📦 Pulling latest frontend code..."
+            echo "📦 Resetting and pulling latest code..."
             git reset --hard
             git clean -fd
             git pull origin main
 
-            echo "📦 Installing frontend dependencies..."
+            echo "🧹 Cleaning previous installs..."
             rm -rf node_modules package-lock.json
+
+            echo "📦 Installing dependencies (force legacy peer deps)..."
             npm install --legacy-peer-deps
 
-            echo "🔨 Building frontend..."
+            echo "🔨 Building the Next.js app..."
             npm run build
 
             echo "🚀 Restarting frontend with PM2..."
             pm2 restart saas-frontend || pm2 start npm --name saas-frontend -- start
 
-            echo "✅ Frontend deployment complete!"
-
-            echo "➡ Backend deployment starting..."
-            cd /var/www/Saas_AutoPublisher/backend
-
-            echo "📦 Pulling latest backend code..."
-            git reset --hard
-            git clean -fd
-            git pull origin main
-
-            echo "🐍 Setting up virtual environment..."
-            python3 -m venv venv
-            source venv/bin/activate
-
-            echo "📦 Installing backend dependencies..."
-            pip install --upgrade pip
-            pip install -r requirements.txt
-
-            echo "🚀 Restarting backend with PM2..."
-            pm2 restart saas-api || pm2 start venv/bin/python --name saas-api -- main.py
-
-            echo "✅ Backend deployment complete!"
-
             echo "🔁 Reloading NGINX..."
             sudo systemctl reload nginx || sudo systemctl restart nginx
 
-            echo "✅ All deployment steps completed!"
-          EOSCRIPT
+            echo "✅ Deployment complete!"
+          EOF
