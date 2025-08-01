@@ -18,9 +18,14 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.VPS_KEY }}
 
+      - name: Add SSH keep-alive config
+        run: |
+          mkdir -p ~/.ssh
+          echo -e "Host *\n  ServerAliveInterval 60\n  ServerAliveCountMax 5" >> ~/.ssh/config
+
       - name: Deploy to VPS
         run: |
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -tt -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             set -e
 
             echo "➡ Switching to project directory..."
