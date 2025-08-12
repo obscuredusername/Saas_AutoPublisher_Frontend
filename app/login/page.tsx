@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, LogIn } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { login, setAuthToken } from "@/lib/api"
+import { login } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,13 +22,12 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await login({ email, password })
+      // The login function now handles setting the token
+      await login({ email, password })
       
-      // Store the JWT token
-      setAuthToken(response.access_token)
-      
-      // Redirect to dashboard
+      // Redirect to dashboard after successful login
       router.push('/dashboard')
+      router.refresh() // Ensure the page refreshes to update auth state
     } catch (err: any) {
       setError(err.message || 'An error occurred during login')
     } finally {

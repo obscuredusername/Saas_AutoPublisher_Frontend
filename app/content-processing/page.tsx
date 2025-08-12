@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileText, Globe, Languages, Database, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { processContentKeywords, getCurrentUser } from "@/lib/api"
-import DatabaseSelector from "@/components/database-selector"
+import CollectionSelector from "@/components/database-selector"
 
 // Content response interface
 interface ContentResponse {
@@ -313,10 +313,12 @@ export default function ContentProcessingPage() {
 								/>
 							</div>
 
-							{/* Target Database Selection */}
-							<DatabaseSelector
+							{/* Target Collection Selection */}
+							<CollectionSelector
 								value={targetDbName}
 								onValueChange={setTargetDbName}
+								label="Select Target Collection"
+								showManageLink={false}
 							/>
 
 							{/* Submit Button */}

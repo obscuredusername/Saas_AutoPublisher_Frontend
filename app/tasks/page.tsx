@@ -32,10 +32,20 @@ export default function TasksPage() {
     setError("")
 
     try {
+      console.log('Fetching user tasks...')
       const userTasks = await getUserTasks()
-      setTasks(userTasks)
+      console.log('User tasks response:', userTasks)
+      
+      // Ensure tasks is always an array
+      const tasksArray = Array.isArray(userTasks) ? userTasks : []
+      console.log('Processed tasks array:', tasksArray)
+      
+      setTasks(tasksArray)
     } catch (err: any) {
+      console.error('Error loading tasks:', err)
       setError(err.message || "Failed to load tasks")
+      // Ensure tasks is always an array even on error
+      setTasks([])
     } finally {
       setIsLoading(false)
     }

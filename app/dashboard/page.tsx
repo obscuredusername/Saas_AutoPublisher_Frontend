@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -13,8 +13,15 @@ import { useAuth } from "@/hooks/useAuth"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { isAuthenticated, loading, requireAuth } = useAuth()
+  const { isAuthenticated, loading, requireAuth, isAdmin, user } = useAuth()
   const [notifications] = useState(3)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+
+  // Debug log
+  useEffect(() => {
+    console.log('Current user:', user);
+    console.log('Is admin:', isAdmin());
+  }, [user, isAdmin]);
 
   // Protect the route
   requireAuth()
@@ -60,6 +67,15 @@ export default function DashboardPage() {
                 </Button>
               </Link>
 
+              {/* Add Admin Panel button for admin users */}
+              {isAdmin() && (
+                <Link href="/dashboard/admin">
+                  <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
+
               <div className="relative">
                 <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
                   <Bell className="h-5 w-5" />
@@ -90,6 +106,43 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* Mobile menu */}
+      {showMobileMenu && (
+        <div className="md:hidden absolute top-16 left-0 right-0 bg-gray-900/95 backdrop-blur-lg z-40 p-4 border-b border-gray-800">
+          <nav className="flex flex-col space-y-2">
+            <Link href="/dashboard" className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800/50 rounded-lg transition-colors">
+              <Globe className="h-5 w-5 mr-3" />
+              Dashboard
+            </Link>
+            <Link href="/dashboard/post-by-keyword" className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800/50 rounded-lg transition-colors">
+              <Keyword className="h-5 w-5 mr-3" />
+              Post by Keyword
+            </Link>
+            <Link href="/dashboard/post-by-news" className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800/50 rounded-lg transition-colors">
+              <Newspaper className="h-5 w-5 mr-3" />
+              Post by News
+            </Link>
+            <Link href="/dashboard/content-processing" className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800/50 rounded-lg transition-colors">
+              <FileText className="h-5 w-5 mr-3" />
+              Content Processing
+            </Link>
+            {isAdmin() && (
+              <Link href="/dashboard/admin" className="flex items-center px-4 py-2 text-blue-400 hover:bg-gray-800/50 rounded-lg transition-colors">
+                <User className="h-5 w-5 mr-3" />
+                Admin Panel
+              </Link>
+            )}
+            <button 
+              onClick={handleLogout}
+              className="flex items-center px-4 py-2 text-red-400 hover:bg-gray-800/50 rounded-lg transition-colors text-left w-full"
+            >
+              <LogOut className="h-5 w-5 mr-3" />
+              Logout
+            </button>
+          </nav>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

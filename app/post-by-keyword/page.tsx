@@ -12,7 +12,7 @@ import { ArrowLeft, Search, Globe, Languages, Zap, X, Clock, RefreshCw, Database
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { processKeywords, getTaskStatus, getUserTasks, getAuthToken, getCurrentUser } from "@/lib/api"
-import DatabaseSelector from "@/components/database-selector"
+import CollectionSelector from "@/components/database-selector"
 
 // Update the KeywordResponse interface to match the CURL response
 interface KeywordResponse {
@@ -449,10 +449,12 @@ export default function PostByKeywordPage() {
 								/>
 							</div>
 
-							{/* Target Database Selection */}
-							<DatabaseSelector
+							{/* Target Collection Selection */}
+							<CollectionSelector
 								value={targetDbName}
 								onValueChange={setTargetDbName}
+								label="Select Target Collection"
+								showManageLink={false}
 							/>
 
 							{/* Submit Button */}

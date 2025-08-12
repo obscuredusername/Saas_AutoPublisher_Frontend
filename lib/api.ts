@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.autopublish.fun'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 // JWT Token management
 export const getAuthToken = (): string | null => {
@@ -29,7 +29,7 @@ const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
     ...(token && { 'Authorization': `Bearer ${token}` }),
     ...options.headers,
   }
-
+  console.log(token)
   const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
     headers,
@@ -63,6 +63,7 @@ export interface AuthResponse {
 export interface UserInfo {
   email: string
   id: string
+  role?: string
 }
 
 // Signup
@@ -98,7 +99,14 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     throw new Error(error.message || 'Failed to login')
   }
 
-  return response.json()
+  const result = await response.json()
+  
+  // Store the token after successful login
+  if (result.access_token) {
+    setAuthToken(result.access_token)
+  }
+  
+  return result
 }
 
 // Refresh token
@@ -228,6 +236,68 @@ export async function processContentKeywords(data: ContentKeywordsRequest): Prom
   })
 }
 
+// ===== COLLECTION MANAGEMENT ENDPOINTS =====
+
+export interface CollectionConfig {
+  name: string
+  collection_name: string
+  description: string
+}
+
+// Store a new collection configuration
+export async function storeCollection(config: Omit<CollectionConfig, 'id'>): Promise<CollectionConfig> {
+  return authenticatedFetch('/admin/store-collection', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  })
+}
+
+// List all available collections
+export async function listCollections(): Promise<CollectionConfig[]> {
+  const response = await authenticatedFetch('/admin/list-collections')
+  if (response && response.collections && Array.isArray(response.collections)) {
+    return response.collections.map((collection: any) => ({
+      name: collection.name || collection.collection_name || '',
+      collection_name: collection.collection_name || collection.name || '',
+      description: collection.description || ''
+    }));
+  }
+  return [];
+}
+
+// Assign a collection to a user
+export async function assignCollectionToUser(
+  userEmail: string,
+  collectionName: string
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/admin/assign-collection', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_email: userEmail,
+      collection_name: collectionName
+    }),
+  })
+}
+
+// List all users with their assigned collections
+export async function listUsersWithCollections(): Promise<UserInfoWithRole[]> {
+  console.log('Fetching users from /admin/list-users...')
+  const response = await authenticatedFetch('/admin/list-users')
+  console.log('Raw response from /admin/list-users:', JSON.stringify(response, null, 2))
+  
+  if (Array.isArray(response)) {
+    const users = response.map((user: any) => ({
+      ...user,
+      assigned_collections: user.assigned_collections || [],
+      role: user.role || 'user'
+    }));
+    console.log('Processed users:', JSON.stringify(users, null, 2))
+    return users;
+  }
+  console.warn('Expected array from /admin/list-users but got:', response)
+  return [];
+}
+
 // ===== ADMIN ENDPOINTS =====
 
 export interface DatabaseConfig {
@@ -244,6 +314,12 @@ export interface SelectDbRequest {
 export interface TargetDbRequest {
   target_db_uri: string
   target_db: string
+}
+
+export interface UserInfoWithRole extends UserInfo {
+  role: string;
+  email: string;
+  assigned_collections?: string[];
 }
 
 // Store database configuration
@@ -316,3 +392,43 @@ export async function scheduleNews(data: {
     body: JSON.stringify(data),
   })
 } 
+
+// List all users (admin only)
+export async function listUsers(): Promise<UserInfoWithRole[]> {
+  return authenticatedFetch('/admin/list-users');
+}
+
+// Delete user (admin only)
+export async function deleteUser(email: string): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch(`/admin/delete-user/${encodeURIComponent(email)}`, {
+    method: 'DELETE',
+  });
+}
+
+// Set admin role (admin only)
+export async function setAdminRole(
+  userEmail: string, 
+  isAdmin: boolean
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/admin/set-admin-role', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_email: userEmail,
+      is_admin: isAdmin,
+    }),
+  });
+}
+
+// Assign user to database (admin only)
+export async function assignUserToDatabase(
+  userEmail: string, 
+  databaseId: string
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/admin/assign-user', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_email: userEmail,
+      database_id: databaseId,
+    }),
+  });
+}
