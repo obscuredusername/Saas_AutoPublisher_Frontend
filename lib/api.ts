@@ -1,6 +1,6 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.autopublish.fun'
 
-// JWT Token management
+// JWT Token managements
 export const getAuthToken = (): string | null => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('access_token')
