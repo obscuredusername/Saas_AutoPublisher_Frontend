@@ -20,7 +20,7 @@ export const removeAuthToken = (): void => {
   }
 }
 
-// Helper function to make authenticated requests
+// Helper function to make authenticated requests pls help
 const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
   const token = getAuthToken()
   
