@@ -1,38 +1,101 @@
 "use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, LogIn } from "lucide-react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { login } from "@/lib/api"
+import { login, getCurrentUser } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // Check if already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/user/session/`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+          },
+        })
+        
+        if (response.ok) {
+          // Already logged in, redirect to dashboard or return URL
+          const returnUrl = searchParams.get('from') || '/dashboard'
+          window.location.href = returnUrl
+        }
+      } catch (error) {
+        console.error('Auth check error:', error)
+      } finally {
+        setIsCheckingAuth(false)
+      }
+    }
+    
+    checkAuth()
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
+    
     setLoading(true)
     setError("")
 
     try {
-      // The login function now handles setting the token
-      await login({ email, password })
+      // 1. First, try to log in
+      const result = await login({ email, password })
+      console.log('Login result:', result)
       
-      // Redirect to dashboard after successful login
-      router.push('/dashboard')
-      router.refresh() // Ensure the page refreshes to update auth state
+      // 2. Store the token if it exists (for API calls)
+      if (result.access_token) {
+        localStorage.setItem('auth_token', result.access_token)
+      }
+      
+      // 3. Get user info to check if admin
+      const userInfo = await getCurrentUser()
+      console.log('User info:', userInfo)
+      
+      // 4. Store user role in localStorage
+      if (userInfo.role) {
+        localStorage.setItem('user_role', userInfo.role)
+        localStorage.setItem('user_email', userInfo.email || email)
+      }
+      
+      // 5. Determine redirect URL based on role
+      const returnUrl = searchParams.get('from') || (userInfo.role === 'admin' ? '/admin' : '/dashboard')
+      console.log('Redirecting to:', returnUrl)
+      
+      // 6. Force a full page reload to ensure all auth state is properly set
+      window.location.href = returnUrl
     } catch (err: any) {
+      console.error('Login error:', err)
       setError(err.message || 'An error occurred during login')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading state while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <span className="text-gray-400">Checking authentication...</span>
+        </div>
+      </div>
+    )
   }
 
   return (

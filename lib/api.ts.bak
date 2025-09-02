@@ -26,11 +26,10 @@ const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
     ...(token && { 'Authorization': `Bearer ${token}` }),
     ...options.headers,
   }
-  
+  console.log(token)
   const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
     headers,
-    credentials: 'include', // This ensures cookies are sent with the request
   })
 
   if (!response.ok) {
@@ -56,8 +55,6 @@ export interface LoginRequest {
 export interface AuthResponse {
   access_token: string
   token_type: string
-  token?: string  // For backward compatibility
-  [key: string]: any  // Allow additional properties
 }
 
 export interface UserInfo {
@@ -91,7 +88,7 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
 
 // Login
 export async function login(data: LoginRequest): Promise<AuthResponse> {
-  const fetchResponse = await fetch(`${API_BASE_URL}/user/login/`, {
+  const response = await fetch(`${API_BASE_URL}/user/login/`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -103,29 +100,21 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     }),
   })
 
-  if (!fetchResponse.ok) {
-    const error = await fetchResponse.json()
+  if (!response.ok) {
+    const error = await response.json()
     throw new Error(error.detail || 'Failed to login')
   }
 
-  const result = await fetchResponse.json()
+  const result = await response.json()
   
   // For session-based auth, we don't need to store anything client-side
   // The session cookie is automatically stored by the browser
   
-  // Create the response object with proper typing
-  const authResponse: AuthResponse = {
-    access_token: result.access_token || 'session',
-    token_type: result.token_type || 'session',
-    ...result
+  return {
+    access_token: 'session', // Return a dummy token to satisfy the AuthResponse type
+    token_type: 'session',
+    ...result // Include any additional user data from the response
   }
-  
-  // Add token property for backward compatibility if it doesn't exist
-  if (!authResponse.token) {
-    authResponse.token = authResponse.access_token
-  }
-  
-  return authResponse
 }
 
 // Refresh session
@@ -156,28 +145,13 @@ export async function getCurrentUser(): Promise<UserInfo> {
     throw new Error('Failed to fetch user info')
   }
   
-  const responseData = await response.json()
-  console.log('Current user data:', responseData) // Debug log
-  
-  // Handle both nested user object and flat response
-  const userData = responseData.user || responseData
-  
-  // Check for admin flag in the response
-  const isAdmin = userData.admin === true || userData.is_admin === true
-  console.log('Is admin:', isAdmin, 'User data:', userData) // Debug log
-  
-  // Store role in localStorage for persistence
-  const role = isAdmin ? 'admin' : 'user'
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('user_role', role)
-    localStorage.setItem('user_email', userData.email || '')
-    console.log('Stored in localStorage:', { role, email: userData.email })
-  }
+  const data = await response.json()
+  console.log('Current user data:', data) // Debug log
   
   return {
-    id: userData.user_id?.toString() || userData.id?.toString() || '',
-    email: userData.email || '',
-    role: role
+    id: data.user_id?.toString() || '',
+    email: data.email || '',
+    role: data.admin ? 'admin' : 'user'
   }
 }
 
@@ -205,20 +179,13 @@ export interface Keyword {
   minLength?: number
 }
 
-export interface ScheduledKeyword {
-  text: string
-  scheduled_time: string
-  min_length: number
-}
-
 export interface GenerateKeywordsRequest {
-  keywords: Array<{ text: string; scheduled_time?: string; min_length?: number }>
+  keywords: Array<{ text: string }>
   tone: string
   word_count: number
   language: string
   country: string
   min_words: number
-  scheduled_times?: string[]
 }
 
 export interface GenerateKeywordsResponse {
@@ -294,17 +261,11 @@ export async function generateKeywords(data: GenerateKeywordsRequest): Promise<G
 
 // ===== NEWS ENDPOINTS =====
 
-export interface ScheduledCategory {
-  count: number;
-  times: string[];
-}
-
 export interface GenerateNewsRequest {
-  categories: Record<string, ScheduledCategory>;
+  categories: Record<string, number>;
   language: string;
   country: string;
   vendor: string;
-  scheduled_times: string[];
 }
 
 export interface GenerateNewsResponse {
@@ -403,18 +364,42 @@ export async function processContentKeywords(data: ContentKeywordsRequest): Prom
 
 // ===== COLLECTION MANAGEMENT ENDPOINTS =====
 
+export interface CreateCollectionRequest {
+  name: string;
+  description: string;
+}
+
+export interface CollectionResponse {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
 export interface CollectionConfig {
   name: string
   collection_name: string
   description: string
 }
 
-// Store a new collection configuration
-export async function storeCollection(config: Omit<CollectionConfig, 'id'>): Promise<CollectionConfig> {
-  return authenticatedFetch('/admin/store-collection', {
+// Create a new collection
+export async function createCollection(data: CreateCollectionRequest): Promise<CollectionResponse> {
+  return authenticatedFetch('/user/collections/create', {
     method: 'POST',
-    body: JSON.stringify(config),
-  })
+    body: JSON.stringify(data)
+  });
+}
+
+// Delete a collection
+export async function deleteCollection(collectionName: string): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch(`/user/collections/${collectionName}`, {
+    method: 'DELETE'
+  });
+}
+
+// List all collections
+export async function listAllCollections(): Promise<CollectionResponse[]> {
+  return authenticatedFetch('/user/users/?show=collections');
 }
 
 // List all available collections
@@ -428,6 +413,14 @@ export async function listCollections(): Promise<CollectionConfig[]> {
     }));
   }
   return [];
+}
+
+// Store a new collection configuration
+export async function storeCollection(config: Omit<CollectionConfig, 'id'>): Promise<CollectionConfig> {
+  return authenticatedFetch('/admin/store-collection', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  })
 }
 
 // Assign a collection to a user
@@ -446,6 +439,32 @@ export async function assignCollectionToUser(
 
 // List all users with their assigned collections
 export async function listUsersWithCollections(): Promise<UserInfoWithRole[]> {
+  return authenticatedFetch('/user/users/?show=all');
+}
+
+// Update user's collection assignment
+export async function updateUserCollection(userEmail: string, collectionName: string): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/user/users/', {
+    method: 'PUT',
+    body: JSON.stringify({
+      user_email: userEmail,
+      collection: collectionName
+    })
+  });
+}
+
+// Get user details
+export async function getUserDetails(userEmail: string): Promise<UserInfoWithRole> {
+  return authenticatedFetch(`/user/users/?email=${userEmail}`);
+}
+
+// List all users
+export async function listAllUsers(): Promise<UserInfoWithRole[]> {
+  return authenticatedFetch('/user/users/?show=users');
+}
+
+// List all users (admin only)
+export async function listUsers(): Promise<UserInfoWithRole[]> {
   console.log('Fetching users from /admin/list-users...')
   const response = await authenticatedFetch('/admin/list-users')
   console.log('Raw response from /admin/list-users:', JSON.stringify(response, null, 2))
@@ -547,21 +566,16 @@ export async function getDedicatedNews(params: {
 } 
 
 export async function scheduleNews(data: {
-  categories: Record<string, ScheduledCategory>,
+  categories: Record<string, number>,
   language: string,
   country: string,
   source: string,
-  scheduled_times: string[]
 }): Promise<GenerateNewsResponse> {
-  return authenticatedFetch('/news/generate/', {
-    method: 'POST',
-    body: JSON.stringify({
-      categories: data.categories,
-      language: data.language,
-      country: data.country,
-      vendor: data.source || 'google',
-      scheduled_times: data.scheduled_times
-    })
+  return generateNews({
+    categories: data.categories,
+    language: data.language,
+    country: data.country,
+    vendor: data.source || 'google'
   });
 } 
 

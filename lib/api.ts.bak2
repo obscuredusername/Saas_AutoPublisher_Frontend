@@ -1,0 +1,582 @@
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.autopublish.fun'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// Session management
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('auth_token');
+}
+
+function setAuthToken(token: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('auth_token', token);
+  }
+}
+
+function removeAuthToken(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('auth_token');
+  }
+}
+
+// Helper function to make authenticated requests
+async function authenticatedFetch(url: string, options: RequestInit = {}) {
+  const token = getAuthToken();
+  const headers = new Headers(options.headers);
+  
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  
+  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'An error occurred');
+    }
+
+    return response.json();
+  } catch (error: any) {
+    console.error('API Error:', error);
+    throw error;
+  }
+}
+
+// ===== AUTHENTICATION ENDPOINTS =====
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export interface UserInfo {
+  email: string;
+  id: string;
+  role?: string;
+}
+
+// Signup
+export async function signup(data: SignupRequest): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Signup failed');
+  }
+
+  return response.json();
+}
+
+// Login
+export async function login(data: LoginRequest): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Login failed');
+  }
+
+  const result = await response.json();
+  
+  if (result.access_token) {
+    setAuthToken(result.access_token);
+  }
+  
+  return result;
+}
+
+// Refresh session
+export async function refreshToken(): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to refresh token');
+  }
+
+  return response.json();
+}
+
+// Get current user info
+export async function getCurrentUser(): Promise<UserInfo> {
+  try {
+    const response = await authenticatedFetch('/auth/me');
+    return response;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    throw error;
+  }
+}
+
+// Logout
+export async function logout(): Promise<{ success: boolean }> {
+  try {
+    await authenticatedFetch('/auth/logout', {
+      method: 'POST',
+    });
+    removeAuthToken();
+    return { success: true };
+  } catch (error) {
+    console.error('Logout error:', error);
+    removeAuthToken();
+    return { success: false };
+  }
+}
+
+// ===== KEYWORDS ENDPOINTS =====
+
+export interface Keyword {
+  text: string;
+  minLength?: number;
+}
+
+export interface GenerateKeywordsRequest {
+  keywords: Array<{ text: string }>;
+  text: string;
+  tone: string;
+  word_count: number;
+  language: string;
+  country: string;
+  min_words: number;
+}
+
+export interface GenerateKeywordsResponse {
+  generated_content: string;
+  status: string;
+  word_count: number;
+}
+
+export interface KeywordsRequest {
+  keywords: Keyword[];
+  country: string;
+  language: string;
+  user_email: string;
+  minutes?: number;
+  min_length?: number;
+  target_db_name?: string;
+}
+
+export interface KeywordsResponse {
+  task_id: string;
+  status: string;
+}
+
+export interface TaskStatus {
+  task_id: string;
+  status: string;
+  result?: string;
+}
+
+// Process keywords
+export async function processKeywords(data: KeywordsRequest): Promise<KeywordsResponse> {
+  return authenticatedFetch('/keywords/process', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Get task status
+export async function getTaskStatus(taskId: string): Promise<TaskStatus> {
+  return authenticatedFetch(`/tasks/${taskId}`);
+}
+
+// Get user's tasks
+export async function getUserTasks(): Promise<TaskStatus[]> {
+  return authenticatedFetch('/tasks');
+}
+
+// Generate content from keywords
+export async function generateKeywords(data: GenerateKeywordsRequest): Promise<GenerateKeywordsResponse> {
+  const response = await authenticatedFetch('/keywords/generate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+  if (!response.generated_content) {
+    throw new Error('No content generated');
+  }
+
+  return response;
+}
+
+// ===== NEWS ENDPOINTS =====
+
+export interface GenerateNewsRequest {
+  categories: Record<string, number>;
+  language: string;
+  country: string;
+  vendor: string;
+}
+
+export interface GenerateNewsResponse {
+  task_id: string;
+  status: string;
+  categories: Record<string, number>;
+  language: string;
+  country: string;
+  vendor: string;
+}
+
+export interface NewsRequest {
+  country: string;
+  language: string;
+  category: string;
+  target_db_name?: string;
+  user_email: string;
+}
+
+export interface NewsResponse {
+  task_id: string;
+  status: string;
+  country: string;
+  language: string;
+  category: string;
+  target_db_name: string;
+  user_email: string;
+}
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  publishedAt: string;
+  source: string;
+}
+
+// Generate news content
+export async function generateNews(data: GenerateNewsRequest): Promise<GenerateNewsResponse> {
+  return authenticatedFetch('/news/generate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Process news
+export async function processNews(data: NewsRequest): Promise<NewsResponse> {
+  return authenticatedFetch('/news/process', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Get news articles
+export async function getNewsArticles(params: {
+  country: string;
+  language: string;
+  category: string;
+  user_email: string;
+}): Promise<NewsArticle[]> {
+  const query = new URLSearchParams(params as Record<string, string>);
+  return authenticatedFetch(`/news/articles?${query}`);
+}
+
+// ===== CONTENT ENDPOINTS =====
+
+export interface ContentKeywordsRequest {
+  keywords: Keyword[];
+  country: string;
+  language: string;
+  user_email: string;
+  target_db_name?: string;
+}
+
+// Process content keywords
+export async function processContentKeywords(data: ContentKeywordsRequest): Promise<KeywordsResponse> {
+  return authenticatedFetch('/content/keywords', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ===== COLLECTION MANAGEMENT ENDPOINTS =====
+
+export interface CreateCollectionRequest {
+  name: string;
+  description: string;
+}
+
+export interface CollectionResponse {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
+export interface CollectionConfig {
+  name: string;
+  collection_name: string;
+  description: string;
+}
+
+// Create a new collection
+export async function createCollection(data: CreateCollectionRequest): Promise<CollectionResponse> {
+  return authenticatedFetch('/collections', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Delete a collection
+export async function deleteCollection(collectionName: string): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch(`/collections/${encodeURIComponent(collectionName)}`, {
+    method: 'DELETE',
+  });
+}
+
+// List all collections
+export async function listAllCollections(): Promise<CollectionResponse[]> {
+  return authenticatedFetch('/collections');
+}
+
+// List all available collections
+export async function listCollections(): Promise<CollectionConfig[]> {
+  try {
+    const response = await authenticatedFetch('/collections');
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    console.error('Error fetching collections:', error);
+    return [];
+  }
+}
+
+// Store a new collection configuration
+export async function storeCollection(config: Omit<CollectionConfig, 'id'>): Promise<CollectionConfig> {
+  return authenticatedFetch('/collections/config', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+}
+
+// User and Collection Management
+
+export interface UserWithCollections extends UserInfo {
+  assigned_collections: string[];
+}
+
+// List all users with their assigned collections
+export async function listUsersWithCollections(): Promise<UserWithCollections[]> {
+  const response = await authenticatedFetch('/user/users/?show=all');
+  return response.map((user: any) => ({
+    email: user.email,
+    role: user.role || 'user',
+    assigned_collections: user.assigned_collections || []
+  }));
+}
+
+// List all users
+export async function listAllUsers(): Promise<UserInfoWithRole[]> {
+  const response = await authenticatedFetch('/user/users/?show=users');
+  return response.map((user: any) => ({
+    email: user.email,
+    role: user.role || 'user'
+  }));
+}
+
+// Get user details
+export async function getUserDetails(email: string): Promise<UserWithCollections> {
+  const response = await authenticatedFetch(`/user/users/?email=${email}`);
+  return {
+    email: response.email,
+    role: response.role || 'user',
+    assigned_collections: response.assigned_collections || []
+  };
+}
+
+// Update user's collection assignment
+export async function updateUserCollection(
+  userEmail: string, 
+  collectionName: string
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/user/users/', {
+    method: 'PUT',
+    body: JSON.stringify({
+      user_email: userEmail,
+      collection: collectionName
+    })
+  });
+}
+
+// Assign a collection to a user
+export async function assignCollectionToUser(
+  userEmail: string,
+  collectionName: string
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/admin/assign-collection', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_email: userEmail,
+      collection_name: collectionName,
+    }),
+  });
+}
+
+// ===== ADMIN ENDPOINTS =====
+
+export interface DatabaseConfig {
+  name: string;
+  target_db_uri: string;
+  target_db: string;
+  description: string;
+}
+
+export interface SelectDbRequest {
+  name: string;
+}
+
+export interface TargetDbRequest {
+  target_db_uri: string;
+  target_db: string;
+}
+
+export interface UserInfoWithRole extends UserInfo {
+  role: string;
+  email: string;
+  assigned_collections?: string[];
+}
+
+// Store database configuration
+export async function storeDbConfig(config: DatabaseConfig): Promise<any> {
+  return authenticatedFetch('/admin/databases', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+}
+
+// Select database
+export async function selectDb(name: string): Promise<any> {
+  return authenticatedFetch('/admin/select-db', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+// List database configurations
+export async function listDbConfigs(): Promise<DatabaseConfig[]> {
+  return authenticatedFetch('/admin/databases');
+}
+
+// Delete database configuration
+export async function deleteDbConfig(name: string): Promise<any> {
+  return authenticatedFetch(`/admin/databases/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+}
+
+// Set target database
+export async function setTargetDb(data: TargetDbRequest): Promise<any> {
+  return authenticatedFetch('/admin/target-db', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Get target database
+export async function getTargetDb(): Promise<TargetDbRequest> {
+  return authenticatedFetch('/admin/target-db');
+}
+
+// List all users (admin only)
+export async function listUsers(): Promise<UserInfoWithRole[]> {
+  try {
+    const users = await authenticatedFetch('/admin/list-users');
+    return Array.isArray(users) ? users : [];
+  } catch (error) {
+    console.error('Error listing users:', error);
+    return [];
+  }
+}
+
+// Delete user (admin only)
+export async function deleteUser(email: string): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch(`/admin/users/${encodeURIComponent(email)}`, {
+    method: 'DELETE',
+  });
+}
+
+// Set admin role (admin only)
+export async function setAdminRole(
+  userEmail: string, 
+  isAdmin: boolean
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/admin/set-admin', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_email: userEmail,
+      is_admin: isAdmin,
+    }),
+  });
+}
+
+// Assign user to database (admin only)
+export async function assignUserToDatabase(
+  userEmail: string, 
+  databaseId: string
+): Promise<{ success: boolean; message: string }> {
+  return authenticatedFetch('/admin/assign-database', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_email: userEmail,
+      database_id: databaseId,
+    }),
+  });
+}
+
+// Get dedicated news
+export async function getDedicatedNews(params: {
+  source: string;
+  category: string;
+  max: number;
+  language: string;
+  country: string;
+}): Promise<any> {
+  const query = new URLSearchParams(params as Record<string, string>);
+  return authenticatedFetch(`/news/dedicated?${query}`);
+}
+
+// Schedule news
+export async function scheduleNews(data: {
+  categories: Record<string, number>,
+  language: string,
+  country: string,
+  source: string,
+}): Promise<GenerateNewsResponse> {
+  return authenticatedFetch('/news/schedule', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Newspaper, Globe, Languages, RefreshCw } from "lucide-react"
+import { ArrowLeft, Newspaper, Globe, Languages, RefreshCw, Clock3 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getCurrentUser } from "@/lib/api"
 import { scheduleNews } from "@/lib/api"
@@ -72,6 +72,16 @@ export default function PostByNewsPage() {
   const [error, setError] = useState("")
   const [response, setResponse] = useState<any>(null)
   const [userEmail, setUserEmail] = useState("")
+  // Initialize with current time in local timezone
+  const [startDateTime, setStartDateTime] = useState<string>(() => {
+    const now = new Date();
+    // Format as YYYY-MM-DDTHH:MM in local timezone
+    const localIsoString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
+    return localIsoString.slice(0, 16);
+  });
+  const [delayMinutes, setDelayMinutes] = useState<number>(10)
+  const [editingTime, setEditingTime] = useState<{categoryIndex: number, postIndex: number} | null>(null)
+  const [editTimeValue, setEditTimeValue] = useState("")
 
   useEffect(() => {
     const getUserInfo = async () => {
@@ -97,22 +107,121 @@ export default function PostByNewsPage() {
     setCategories(prev => prev.filter((_, i) => i !== index))
   }
 
+  // Function to add minutes to a time string (HH:MM format)
+  const addMinutesToTime = (timeStr: string | undefined, minutes: number): string => {
+    // Default to current time if timeStr is not provided
+    if (!timeStr) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + minutes);
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+    
+    // Ensure timeStr has the correct format (HH:MM)
+    const timeParts = timeStr.split(':');
+    if (timeParts.length < 2) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + minutes);
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+    
+    const [hours, mins] = timeParts.map(Number);
+    const date = new Date();
+    date.setHours(hours, mins, 0, 0);
+    date.setMinutes(date.getMinutes() + minutes);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
+
+  // Function to calculate scheduled times with delay
+  const calculateScheduledTimes = (startTime: string, count: number, delay: number): string[] => {
+    const times: string[] = []
+    let currentTime = startTime
+    
+    for (let i = 0; i < count; i++) {
+      times.push(currentTime)
+      if (i < count - 1) {
+        currentTime = addMinutesToTime(currentTime, delay)
+      }
+    }
+    
+    return times
+  }
+
+  const handleTimeEditStart = (categoryIndex: number, postIndex: number, currentTime: string) => {
+    setEditingTime({ categoryIndex, postIndex });
+    setEditTimeValue(currentTime);
+  };
+
+  const handleTimeEditSave = () => {
+    if (editingTime && editTimeValue) {
+      const { categoryIndex, postIndex } = editingTime;
+      const categoryKey = categories[categoryIndex].key;
+      const updatedCategories = [...categories];
+      
+      // Update the scheduled times for this category
+      const scheduledTimes = calculateScheduledTimes(
+        startDateTime.split('T')[1],
+        updatedCategories[categoryIndex].value,
+        delayMinutes
+      );
+      
+      // Update the specific time
+      scheduledTimes[postIndex] = editTimeValue;
+      
+      // Update the start time to reflect the changes
+      const [dateStr] = startDateTime.split('T');
+      setStartDateTime(`${dateStr}T${scheduledTimes[0]}`);
+      
+      setEditingTime(null);
+    }
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditTimeValue(e.target.value);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!categories.every(cat => cat.key && cat.value > 0)) {
+      setError("Please fill in all category fields with valid values")
+      return
+    }
+
     setIsProcessing(true)
     setError("")
-    setResponse(null)
+
     try {
-      const catObj: Record<string, number> = {}
-      categories.forEach(cat => {
-        if (cat.key && cat.value > 0) catObj[cat.key] = cat.value
+      // Prepare categories with scheduled times
+      const scheduledCategories: Record<string, { count: number, times: string[] }> = {}
+      if (!startDateTime) return; // Guard against empty startDateTime
+      const [dateStr, timeStr] = startDateTime.split('T');
+      let currentTime = timeStr || '10:00'; // Fallback to 10:00 if timeStr is undefined
+
+      categories.forEach(category => {
+        scheduledCategories[category.key] = {
+          count: category.value,
+          times: Array(category.value).fill(0).map(() => {
+            const time = currentTime
+            // Add delay minutes for the next post
+            currentTime = addMinutesToTime(currentTime, delayMinutes)
+            return time
+          })
+        }
       })
+
+      // Collect all scheduled times for the API
+      const allScheduledTimes: string[] = []
+      Object.values(scheduledCategories).forEach(category => {
+        allScheduledTimes.push(...category.times)
+      })
+
       const body = {
-        categories: catObj,
+        categories: scheduledCategories,
         language,
         country,
         source,
+        scheduled_times: allScheduledTimes
       }
+
       const res = await scheduleNews(body)
       setResponse(res)
     } catch (err: any) {
@@ -211,16 +320,111 @@ export default function PostByNewsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="source" className="text-gray-300 text-sm font-medium">Source</Label>
+                  <Label htmlFor="source">Source</Label>
                   <Select value={source} onValueChange={setSource}>
-                    <SelectTrigger className="h-12 bg-gray-800/50 border border-gray-600 text-white rounded-xl">
-                      <SelectValue placeholder="Select a source" />
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select source" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="google">Google</SelectItem>
-                      <SelectItem value="yahoo">Yahoo</SelectItem>
+                      <SelectItem value="google">Google News</SelectItem>
+                      <SelectItem value="bing">Bing News</SelectItem>
+                      <SelectItem value="yahoo">Yahoo News</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Start Date & Time</Label>
+                      <Input
+                        type="datetime-local"
+                        value={startDateTime}
+                        onChange={(e) => setStartDateTime(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        <Clock3 className="inline h-4 w-4 mr-1" />
+                        Delay (minutes)
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={delayMinutes}
+                        onChange={(e) => setDelayMinutes(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Scheduled Posts Preview */}
+                  <div className="mt-4 space-y-2">
+                    <Label>Scheduled Posts</Label>
+                    <div className="space-y-2 max-h-60 overflow-y-auto p-2 bg-gray-800/30 rounded-lg">
+                      {categories.map((category, catIndex) => {
+                        const scheduledTimes = calculateScheduledTimes(
+                          startDateTime.split('T')[1],
+                          category.value,
+                          delayMinutes
+                        );
+                        
+                        return (
+                          <div key={catIndex} className="mb-3">
+                            <div className="text-sm font-medium text-blue-400 mb-1">
+                              {category.key} ({category.value} posts)
+                            </div>
+                            <div className="space-y-1 pl-4">
+                              {scheduledTimes.map((time, timeIndex) => {
+                                const [date] = startDateTime.split('T');
+                                const isEditing = editingTime?.categoryIndex === catIndex && editingTime?.postIndex === timeIndex;
+                                
+                                return (
+                                  <div key={timeIndex} className="flex items-center text-sm text-gray-300">
+                                    <span className="w-24">Post {timeIndex + 1}:</span>
+                                    {isEditing ? (
+                                      <div className="flex items-center space-x-1">
+                                        <input
+                                          type="time"
+                                          value={editTimeValue}
+                                          onChange={handleTimeChange}
+                                          className="bg-gray-700 text-white text-xs px-2 py-1 rounded w-20"
+                                          step="300"
+                                        />
+                                        <button 
+                                          onClick={handleTimeEditSave}
+                                          className="text-green-400 hover:text-green-300 text-sm"
+                                        >
+                                          ✓
+                                        </button>
+                                        <button 
+                                          onClick={() => setEditingTime(null)}
+                                          className="text-red-400 hover:text-red-300 text-sm"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center">
+                                        <span>{time}</span>
+                                        <button 
+                                          onClick={() => handleTimeEditStart(catIndex, timeIndex, time)}
+                                          className="ml-2 text-blue-400 hover:text-blue-300 text-xs"
+                                        >
+                                          ✏️
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
               <Button type="submit" disabled={isProcessing} className="w-full h-12 text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center">
