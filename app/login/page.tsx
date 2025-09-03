@@ -23,7 +23,10 @@ function LoginForm() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.staging.autopublish.fun'}/user/session/`, {
+        if (!process.env.NEXT_PUBLIC_API_URL) {
+          throw new Error('NEXT_PUBLIC_API_URL environment variable is not set');
+        }
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/session/`, {
           credentials: 'include',
           headers: {
             'Accept': 'application/json',

@@ -49,7 +49,10 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.staging.autopublish.fun'}/user/logout/`, {
+      if (!process.env.NEXT_PUBLIC_API_URL) {
+        throw new Error('NEXT_PUBLIC_API_URL environment variable is not set');
+      }
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/logout/`, {
         method: 'POST',
         credentials: 'include',
       })

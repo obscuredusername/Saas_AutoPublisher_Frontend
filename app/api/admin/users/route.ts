@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.staging.autopublish.fun'
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+if (!API_URL) {
+  throw new Error('NEXT_PUBLIC_API_URL environment variable is not set')
+}
 
 export async function GET() {
   const cookieStore = cookies()
