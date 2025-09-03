@@ -23,7 +23,7 @@ function LoginForm() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/user/session/`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.staging.autopublish.fun'}/user/session/`, {
           credentials: 'include',
           headers: {
             'Accept': 'application/json',

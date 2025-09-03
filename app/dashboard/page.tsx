@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/user/logout/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.staging.autopublish.fun'}/user/logout/`, {
         method: 'POST',
         credentials: 'include',
       })
